@@ -7,6 +7,29 @@
 
 FROM getmeili/meilisearch:v1.53.2
 
+# This base is Alpine/musl, so the guest packages come from apk rather than
+# apt. `iproute2` and `openssh` are what a Firecracker guest needs beyond the
+# application: /init.sh configures eth0 with `ip` from the kernel's `ip=`
+# parameter, and sshd is what backs `heyctl exec` and `heyctl shell`.
+RUN apk add --no-cache openssh iproute2 curl \
+    && mkdir -p /run/sshd /etc/ssh/sshd_config.d \
+    && echo "PermitRootLogin yes" >> /etc/ssh/sshd_config \
+    && echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config \
+    && echo "PasswordAuthentication yes" > /etc/ssh/sshd_config.d/50-heyo.conf \
+    && chmod 644 /etc/ssh/sshd_config.d/50-heyo.conf \
+    && ssh-keygen -A \
+    # busybox `passwd -d` is not in every Alpine build; edit the shadow entry
+    # directly when it is missing, so root can log in with no password.
+    && { passwd -d root 2>/dev/null || sed -i 's/^root:[^:]*:/root::/' /etc/shadow; }
+
+# PID 1 for the microVM: the kernel boots `init=/init.sh`, and an image without
+# it panics before userspace exists. See rootfs/init.sh.
+COPY rootfs/init.sh /init.sh
+RUN chmod +x /init.sh \
+    && mkdir -p /etc/heyo \
+    && echo 'regional-meili' > /etc/heyo/hostname \
+    && echo 'regional-meili' > /etc/hostname
+
 COPY meilisearch/config.toml /etc/meilisearch/config.toml
 
 ENV MEILI_CONFIG_FILE_PATH=/etc/meilisearch/config.toml \

@@ -33,15 +33,41 @@ FROM debian:bookworm-slim
 # region.colorado.toml for the shape.
 ARG REGION_FILE=region.colorado.toml
 
+# `openssh-server` and `iproute2` are not optional in a Firecracker guest:
+# /init.sh brings eth0 up with `ip` from the kernel's `ip=` parameter, and sshd
+# is what backs `heyctl exec` and `heyctl shell` into the VM. Without them the
+# VM boots unreachable and undebuggable.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates curl openssh-server iproute2 iputils-ping procps \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --create-home regional
+
+# Host keys at build time so sshd does not block on entropy at first boot, and
+# the login policy written explicitly because there is no cloud-init to fix it
+# later. The guest is reachable only through the host's tap device.
+RUN mkdir -p /run/sshd /etc/ssh/sshd_config.d \
+    && echo "PermitRootLogin yes" >> /etc/ssh/sshd_config \
+    && echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config \
+    && echo "PasswordAuthentication yes" > /etc/ssh/sshd_config.d/50-heyo.conf \
+    && chmod 644 /etc/ssh/sshd_config.d/50-heyo.conf \
+    && passwd -d root \
+    && ssh-keygen -A
 
 COPY --from=builder /usr/local/bin/bot /usr/local/bin/bot
 # Baked in, because heyo's firecracker_containerd backend takes no --mount.
 # REGION_CONFIG can still point elsewhere at runtime where a mount exists.
 COPY ${REGION_FILE} /etc/regional/region.toml
+
+# PID 1 for the microVM. The kernel is booted with `init=/init.sh`, so an image
+# without this panics before userspace starts; see rootfs/init.sh. ENTRYPOINT
+# below is what `docker compose up` uses and the kernel ignores — both paths
+# work from one image.
+COPY rootfs/init.sh /init.sh
+RUN chmod +x /init.sh \
+    && mkdir -p /etc/heyo \
+    && echo 'regional-bot' > /etc/heyo/hostname \
+    && echo 'regional-bot' > /etc/hostname
 
 USER regional
 ENV PORT=8081 \

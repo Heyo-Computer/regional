@@ -64,10 +64,23 @@ async fn main() -> Result<()> {
     let ct = tokio_util::sync::CancellationToken::new();
 
     let mcp_state = state.clone();
+    // rmcp's Host allowlist is loopback-only by default, so behind a load
+    // balancer every request arrives with a hostname it rejects. Anything
+    // listed in MCP_ALLOWED_HOSTS replaces that list; `*` turns the check
+    // off, which is only safe because the bearer check runs in front of it.
+    let mut http_config =
+        StreamableHttpServerConfig::default().with_cancellation_token(ct.child_token());
+    if cfg.allowed_hosts.iter().any(|h| h == "*") {
+        tracing::warn!("MCP_ALLOWED_HOSTS=* — Host validation is disabled");
+        http_config = http_config.disable_allowed_hosts();
+    } else if !cfg.allowed_hosts.is_empty() {
+        tracing::info!(hosts = ?cfg.allowed_hosts, "restricting the MCP Host allowlist");
+        http_config = http_config.with_allowed_hosts(cfg.allowed_hosts.clone());
+    }
     let mcp_service = StreamableHttpService::new(
         move || Ok(RegionalSearch::new(mcp_state.clone())),
         LocalSessionManager::default().into(),
-        StreamableHttpServerConfig::default().with_cancellation_token(ct.child_token()),
+        http_config,
     );
 
     // Auth wraps only the MCP route: heyo's `--health-path` probe has no

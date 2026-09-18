@@ -14,6 +14,14 @@ pub struct Config {
     /// the operator explicitly opted out.
     pub auth_token: Option<String>,
     pub allow_anonymous: bool,
+    /// Hostnames the Streamable HTTP transport will answer on.
+    ///
+    /// rmcp defends against DNS rebinding by refusing any `Host` it does not
+    /// recognise, and its default list is loopback only — right for a server
+    /// on a laptop, fatal behind a load balancer, which forwards the public
+    /// hostname and gets `Forbidden: Host header is not allowed`. Empty
+    /// means "keep rmcp's default"; `*` disables the check entirely.
+    pub allowed_hosts: Vec<String>,
 }
 
 impl Config {
@@ -50,10 +58,21 @@ impl Config {
             tracing::warn!("MCP_ALLOW_ANONYMOUS is set, so MCP_AUTH_TOKEN will not be enforced");
         }
 
+        // Comma-separated, `host` or `host:port`, e.g.
+        // `MCP_ALLOWED_HOSTS=regional-mcp.us2.heyo.work`.
+        let allowed_hosts: Vec<String> = std::env::var("MCP_ALLOWED_HOSTS")
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect();
+
         Ok(Self {
             bind,
             auth_token,
             allow_anonymous,
+            allowed_hosts,
         })
     }
 

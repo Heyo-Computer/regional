@@ -1,0 +1,29 @@
+[package]
+name = "dashboard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Operator dashboard and public request page for the regional search stack"
+
+[dependencies]
+regional-core.workspace = true
+
+anyhow.workspace = true
+axum.workspace = true
+chrono.workspace = true
+meilisearch-sdk.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+url.workspace = true
+
+maud = { version = "0.27", features = ["axum"] }
+rand = "0.10"
+reqwest = { version = "0.13", default-features = false, features = [
+    "json",
+    "rustls",
+    "webpki-roots",
+] }
+tower-http = { version = "0.6", features = ["trace"] }

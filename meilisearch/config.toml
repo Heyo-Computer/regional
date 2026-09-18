@@ -1,0 +1,15 @@
+# Baked-in Meilisearch configuration.
+#
+# Index settings (searchable/filterable/sortable attributes, synonyms) are
+# NOT set here — they are applied by `ensure_indexes` in the regional-core
+# crate, so the schema lives with the code that depends on it.
+
+db_path = "/data.ms"
+http_addr = "0.0.0.0:7700"
+env = "production"
+
+# The indexer writes in bounded chunks and awaits each one, so the default
+# batching is fine; raise this only if you give the VM more RAM.
+max_indexing_memory = "2 GiB"
+
+log_level = "INFO"

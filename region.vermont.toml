@@ -1,0 +1,161 @@
+# A worked second region, to show what configuring another place involves.
+#
+#   docker build -f mcp/Dockerfile --build-arg REGION_FILE=region.vermont.toml .
+#   REGION_FILE=region.vermont.toml docker compose up --build
+#
+# Nothing else in the repo is Colorado-specific — this file is the whole
+# difference between the two deployments.
+
+name = "Vermont"
+slug = "vt"
+admin_level = "state"
+timezone = "America/New_York"
+
+[bbox]
+min_lat = 42.726853
+min_lng = -73.437740
+max_lat = 45.016659
+max_lng = -71.464555
+
+[centroid]
+lat = 43.916
+lng = -72.669
+
+# Replaces the built-in defaults wholesale, so the general groups are
+# repeated here alongside the ones that only matter in Vermont.
+[vocabulary]
+stop_words = [
+  "a", "an", "and", "at", "for", "in", "is", "it", "near", "of", "on", "or",
+  "the", "to", "with", "where",
+]
+synonyms = [
+  ["restaurant", "eatery", "dining", "diner"],
+  ["bar", "pub", "tavern"],
+  ["brewery", "taproom", "brewpub"],
+  ["cafe", "coffee shop", "coffeehouse"],
+  ["trail", "trailhead", "hiking"],
+  ["hotel", "lodging", "motel", "inn"],
+  ["museum", "gallery"],
+  ["campground", "camping", "campsite"],
+  ["ski area", "ski resort", "ski hill"],
+  # Vermont-specific vocabulary.
+  ["sugarhouse", "sugar shack", "maple syrup", "sugaring"],
+  ["creemee", "soft serve", "ice cream"],
+  ["covered bridge", "bridge"],
+  ["farm stand", "farmstand", "farm store"],
+]
+
+[[cities]]
+name = "Burlington"
+aliases = ["Burlington, VT"]
+lat = 44.4759
+lng = -73.2121
+county = "Chittenden"
+default_radius_m = 12000
+
+[[cities]]
+name = "Montpelier"
+lat = 44.2601
+lng = -72.5754
+county = "Washington"
+default_radius_m = 9000
+
+[[cities]]
+name = "Rutland"
+lat = 43.6106
+lng = -72.9726
+county = "Rutland"
+default_radius_m = 10000
+
+[[cities]]
+name = "Brattleboro"
+lat = 42.8509
+lng = -72.5579
+county = "Windham"
+default_radius_m = 10000
+
+[[cities]]
+name = "Stowe"
+lat = 44.4654
+lng = -72.6874
+county = "Lamoille"
+default_radius_m = 12000
+
+[[cities]]
+name = "Middlebury"
+lat = 44.0153
+lng = -73.1673
+county = "Addison"
+default_radius_m = 10000
+
+[[cities]]
+name = "Bennington"
+lat = 42.8781
+lng = -73.1968
+county = "Bennington"
+default_radius_m = 10000
+
+[[cities]]
+name = "Barre"
+lat = 44.1970
+lng = -72.5023
+county = "Washington"
+default_radius_m = 9000
+
+[[cities]]
+name = "Woodstock"
+lat = 43.6242
+lng = -72.5187
+county = "Windsor"
+default_radius_m = 9000
+
+[[cities]]
+name = "Manchester"
+lat = 43.1637
+lng = -73.0723
+county = "Bennington"
+default_radius_m = 10000
+
+[[cities]]
+name = "Killington"
+lat = 43.6045
+lng = -72.8201
+county = "Rutland"
+default_radius_m = 12000
+
+[[cities]]
+name = "Waterbury"
+lat = 44.3378
+lng = -72.7562
+county = "Washington"
+default_radius_m = 9000
+
+[[cities]]
+name = "Shelburne"
+lat = 44.3806
+lng = -73.2318
+county = "Chittenden"
+default_radius_m = 8000
+
+[[cities]]
+name = "St. Albans"
+aliases = ["Saint Albans"]
+lat = 44.8109
+lng = -73.0832
+county = "Franklin"
+default_radius_m = 10000
+
+[[cities]]
+name = "Newport"
+lat = 44.9364
+lng = -72.2051
+county = "Orleans"
+default_radius_m = 10000
+
+[[cities]]
+name = "St. Johnsbury"
+aliases = ["Saint Johnsbury"]
+lat = 44.4192
+lng = -72.0151
+county = "Caledonia"
+default_radius_m = 10000

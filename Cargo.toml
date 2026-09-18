@@ -1,0 +1,27 @@
+[workspace]
+resolver = "3"
+members = ["core", "mcp", "bot", "dashboard"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+regional-core = { path = "core" }
+
+anyhow = "1.0"
+thiserror = "2.0"
+async-trait = "0.1"
+blake3 = "1.5"
+chrono = { version = "0.4", features = ["serde"] }
+meilisearch-sdk = "0.33"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.53", features = ["full"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2.5"
+axum = "0.8"

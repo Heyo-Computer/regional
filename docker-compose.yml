@@ -1,0 +1,94 @@
+# Local development stack: the search database, the indexer, and the MCP API.
+#
+#   cp .env.example .env    # then edit it
+#   docker compose up --build
+#
+# The same three images are what get deployed to heyo; see deploy/heyo-deploy.sh.
+
+services:
+  meilisearch:
+    build:
+      context: .
+      dockerfile: meilisearch/Dockerfile
+    image: regional-meilisearch:dev
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?set MEILI_MASTER_KEY in .env (see .env.example)}
+    volumes:
+      - meili-data:/data.ms
+    ports:
+      - "7700:7700"
+    restart: unless-stopped
+
+  bot:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+      args:
+        REGION_FILE: ${REGION_FILE:-region.colorado.toml}
+    image: regional-bot:dev
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+    environment:
+      MEILI_URL: http://meilisearch:7700
+      # The indexer writes, so it needs the admin key.
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:?set CONTACT_EMAIL in .env — OSM, Wikimedia and Nominatim all require a real contact address}
+      CRAWL_SEEDS: ${CRAWL_SEEDS:-}
+      SOURCE_INTERVALS: ${SOURCE_INTERVALS:-overpass=20m,wikipedia=15m,crawl=10m}
+      DISABLED_SOURCES: ${DISABLED_SOURCES:-}
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  mcp:
+    build:
+      context: .
+      dockerfile: mcp/Dockerfile
+      args:
+        REGION_FILE: ${REGION_FILE:-region.colorado.toml}
+    image: regional-mcp:dev
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+    environment:
+      MEILI_URL: http://meilisearch:7700
+      # Search-only by design. For local development this falls back to the
+      # master key; in production create a real search key — see
+      # deploy/create-search-key.sh.
+      MEILI_SEARCH_KEY: ${MEILI_SEARCH_KEY:-${MEILI_MASTER_KEY}}
+      MCP_AUTH_TOKEN: ${MCP_AUTH_TOKEN:?set MCP_AUTH_TOKEN in .env — the MCP endpoint refuses to start without one}
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: dashboard/Dockerfile
+      args:
+        REGION_FILE: ${REGION_FILE:-region.colorado.toml}
+    image: regional-dashboard:dev
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+    environment:
+      MEILI_URL: http://meilisearch:7700
+      # Writes submissions; never writes the content indexes.
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?}
+      BOT_HEALTH_URL: http://bot:8081/healthz
+      PUBLIC_TITLE: ${PUBLIC_TITLE:-}
+      PUBLIC_CONTACT: ${PUBLIC_CONTACT:-}
+      SUBMIT_PER_HOUR: ${SUBMIT_PER_HOUR:-10}
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      # 8090 is the operator dashboard — put it behind the load balancer.
+      # 8091 is the public request form — leave it open.
+      - "8090:8090"
+      - "8091:8091"
+    restart: unless-stopped
+
+volumes:
+  meili-data:

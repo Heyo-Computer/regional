@@ -1,0 +1,410 @@
+# Region definition for the regional search stack.
+# Everything indexed must fall inside `bbox` (or `polygon`, if set).
+# `cities` is the gazetteer: it resolves human place names ("Denver",
+# "Grand Junction") to coordinates without any external geocoder call
+# on the read path.
+
+name = "Colorado"
+slug = "co"
+admin_level = "state"
+timezone = "America/Denver"
+
+# Colorado is a true rectangle, so the bbox is exact. For a non-rectangular
+# region, set `polygon = [[lat, lng], ...]` instead and the same call sites
+# emit _geoPolygon(...) rather than _geoBoundingBox(...).
+[bbox]
+min_lat = 36.992426
+min_lng = -109.060253
+max_lat = 41.003444
+max_lng = -102.041524
+
+[centroid]
+lat = 38.997934
+lng = -105.550888
+
+# Search vocabulary. Omit this whole table to take the built-in English
+# defaults; anything you set here REPLACES the default rather than adding to
+# it, so edit these lists rather than appending a single entry.
+#
+# Synonym groups are bidirectional: every term becomes a synonym of every
+# other in its group. These earn their keep — OpenStreetMap tags a winery as
+# `craft=winery` while people search for a "vineyard", and tags a `taproom`
+# that everyone calls a brewery.
+[vocabulary]
+stop_words = [
+  "a", "an", "and", "at", "for", "in", "is", "it", "near", "of", "on", "or",
+  "the", "to", "with", "where",
+]
+synonyms = [
+  ["vineyard", "winery", "wine tasting", "tasting room"],
+  ["restaurant", "eatery", "dining", "diner"],
+  ["bar", "pub", "tavern"],
+  ["brewery", "taproom", "brewpub", "beer garden"],
+  ["cafe", "coffee shop", "coffeehouse", "espresso"],
+  ["trail", "trailhead", "hiking"],
+  ["hotel", "lodging", "motel", "inn"],
+  ["museum", "gallery"],
+  ["campground", "camping", "campsite"],
+  ["hot springs", "hot spring", "thermal springs"],
+  ["ski area", "ski resort", "ski hill"],
+  # Colorado-specific: a "fourteener" is any peak over 14,000 feet.
+  ["fourteener", "14er", "peak", "summit"],
+]
+
+[[cities]]
+name = "Denver"
+aliases = ["Denver, CO", "Mile High City"]
+lat = 39.7392
+lng = -104.9903
+county = "Denver"
+default_radius_m = 15000
+
+[[cities]]
+name = "Colorado Springs"
+aliases = ["Colorado Springs, CO"]
+lat = 38.8339
+lng = -104.8214
+county = "El Paso"
+default_radius_m = 15000
+
+[[cities]]
+name = "Aurora"
+lat = 39.7294
+lng = -104.8319
+county = "Arapahoe"
+default_radius_m = 12000
+
+[[cities]]
+name = "Fort Collins"
+aliases = ["FoCo"]
+lat = 40.5853
+lng = -105.0844
+county = "Larimer"
+default_radius_m = 12000
+
+[[cities]]
+name = "Lakewood"
+lat = 39.7047
+lng = -105.0814
+county = "Jefferson"
+default_radius_m = 10000
+
+[[cities]]
+name = "Thornton"
+lat = 39.8680
+lng = -104.9719
+county = "Adams"
+default_radius_m = 9000
+
+[[cities]]
+name = "Arvada"
+lat = 39.8028
+lng = -105.0875
+county = "Jefferson"
+default_radius_m = 9000
+
+[[cities]]
+name = "Westminster"
+lat = 39.8367
+lng = -105.0372
+county = "Adams"
+default_radius_m = 9000
+
+[[cities]]
+name = "Pueblo"
+lat = 38.2544
+lng = -104.6091
+county = "Pueblo"
+default_radius_m = 12000
+
+[[cities]]
+name = "Boulder"
+lat = 40.0150
+lng = -105.2705
+county = "Boulder"
+default_radius_m = 10000
+
+[[cities]]
+name = "Grand Junction"
+aliases = ["GJ", "Grand Junction, CO"]
+lat = 39.0639
+lng = -108.5506
+county = "Mesa"
+default_radius_m = 20000
+
+[[cities]]
+name = "Palisade"
+aliases = ["Palisade wine country"]
+lat = 39.1103
+lng = -108.3509
+county = "Mesa"
+default_radius_m = 12000
+
+[[cities]]
+name = "Greeley"
+lat = 40.4233
+lng = -104.7091
+county = "Weld"
+default_radius_m = 11000
+
+[[cities]]
+name = "Longmont"
+lat = 40.1672
+lng = -105.1019
+county = "Boulder"
+default_radius_m = 9000
+
+[[cities]]
+name = "Loveland"
+lat = 40.3978
+lng = -105.0748
+county = "Larimer"
+default_radius_m = 9000
+
+[[cities]]
+name = "Broomfield"
+lat = 39.9205
+lng = -105.0867
+county = "Broomfield"
+default_radius_m = 8000
+
+[[cities]]
+name = "Castle Rock"
+lat = 39.3722
+lng = -104.8561
+county = "Douglas"
+default_radius_m = 9000
+
+[[cities]]
+name = "Golden"
+lat = 39.7555
+lng = -105.2211
+county = "Jefferson"
+default_radius_m = 8000
+
+[[cities]]
+name = "Littleton"
+lat = 39.6133
+lng = -105.0166
+county = "Arapahoe"
+default_radius_m = 9000
+
+[[cities]]
+name = "Englewood"
+lat = 39.6478
+lng = -104.9878
+county = "Arapahoe"
+default_radius_m = 7000
+
+[[cities]]
+name = "Centennial"
+lat = 39.5807
+lng = -104.8772
+county = "Arapahoe"
+default_radius_m = 9000
+
+[[cities]]
+name = "Parker"
+lat = 39.5186
+lng = -104.7614
+county = "Douglas"
+default_radius_m = 9000
+
+[[cities]]
+name = "Commerce City"
+lat = 39.8083
+lng = -104.9339
+county = "Adams"
+default_radius_m = 9000
+
+[[cities]]
+name = "Brighton"
+lat = 39.9853
+lng = -104.8206
+county = "Adams"
+default_radius_m = 9000
+
+[[cities]]
+name = "Louisville"
+lat = 39.9778
+lng = -105.1319
+county = "Boulder"
+default_radius_m = 7000
+
+[[cities]]
+name = "Lafayette"
+lat = 39.9936
+lng = -105.0897
+county = "Boulder"
+default_radius_m = 7000
+
+[[cities]]
+name = "Windsor"
+lat = 40.4775
+lng = -104.9014
+county = "Weld"
+default_radius_m = 8000
+
+[[cities]]
+name = "Durango"
+lat = 37.2753
+lng = -107.8801
+county = "La Plata"
+default_radius_m = 15000
+
+[[cities]]
+name = "Aspen"
+lat = 39.1911
+lng = -106.8175
+county = "Pitkin"
+default_radius_m = 12000
+
+[[cities]]
+name = "Vail"
+lat = 39.6403
+lng = -106.3742
+county = "Eagle"
+default_radius_m = 12000
+
+[[cities]]
+name = "Breckenridge"
+aliases = ["Breck"]
+lat = 39.4817
+lng = -106.0384
+county = "Summit"
+default_radius_m = 12000
+
+[[cities]]
+name = "Steamboat Springs"
+aliases = ["Steamboat"]
+lat = 40.4850
+lng = -106.8317
+county = "Routt"
+default_radius_m = 15000
+
+[[cities]]
+name = "Glenwood Springs"
+lat = 39.5505
+lng = -107.3248
+county = "Garfield"
+default_radius_m = 12000
+
+[[cities]]
+name = "Telluride"
+lat = 37.9375
+lng = -107.8123
+county = "San Miguel"
+default_radius_m = 12000
+
+[[cities]]
+name = "Estes Park"
+lat = 40.3772
+lng = -105.5217
+county = "Larimer"
+default_radius_m = 12000
+
+[[cities]]
+name = "Crested Butte"
+lat = 38.8697
+lng = -106.9878
+county = "Gunnison"
+default_radius_m = 12000
+
+[[cities]]
+name = "Gunnison"
+lat = 38.5458
+lng = -106.9253
+county = "Gunnison"
+default_radius_m = 15000
+
+[[cities]]
+name = "Salida"
+lat = 38.5347
+lng = -105.9989
+county = "Chaffee"
+default_radius_m = 12000
+
+[[cities]]
+name = "Leadville"
+lat = 39.2508
+lng = -106.2925
+county = "Lake"
+default_radius_m = 12000
+
+[[cities]]
+name = "Winter Park"
+lat = 39.8917
+lng = -105.7631
+county = "Grand"
+default_radius_m = 12000
+
+[[cities]]
+name = "Silverthorne"
+lat = 39.6294
+lng = -106.0717
+county = "Summit"
+default_radius_m = 10000
+
+[[cities]]
+name = "Manitou Springs"
+lat = 38.8597
+lng = -104.9172
+county = "El Paso"
+default_radius_m = 7000
+
+[[cities]]
+name = "Montrose"
+lat = 38.4783
+lng = -107.8762
+county = "Montrose"
+default_radius_m = 15000
+
+[[cities]]
+name = "Cañon City"
+aliases = ["Canon City"]
+lat = 38.4409
+lng = -105.2424
+county = "Fremont"
+default_radius_m = 12000
+
+[[cities]]
+name = "Trinidad"
+lat = 37.1695
+lng = -104.5005
+county = "Las Animas"
+default_radius_m = 15000
+
+[[cities]]
+name = "Alamosa"
+lat = 37.4695
+lng = -105.8700
+county = "Alamosa"
+default_radius_m = 15000
+
+[[cities]]
+name = "Pagosa Springs"
+lat = 37.2695
+lng = -107.0098
+county = "Archuleta"
+default_radius_m = 15000
+
+[[cities]]
+name = "Sterling"
+lat = 40.6255
+lng = -103.2077
+county = "Logan"
+default_radius_m = 15000
+
+[[cities]]
+name = "Fort Morgan"
+lat = 40.2503
+lng = -103.8000
+county = "Morgan"
+default_radius_m = 12000
+
+[[cities]]
+name = "Craig"
+lat = 40.5153
+lng = -107.5464
+county = "Moffat"
+default_radius_m = 15000

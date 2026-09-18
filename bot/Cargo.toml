@@ -1,0 +1,39 @@
+[package]
+name = "bot"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Continuous indexer feeding the regional Meilisearch index"
+
+[dependencies]
+regional-core.workspace = true
+
+anyhow.workspace = true
+async-trait.workspace = true
+axum.workspace = true
+chrono.workspace = true
+meilisearch-sdk.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+url.workspace = true
+
+rand = "0.10"
+reqwest = { version = "0.13", default-features = false, features = [
+    "form",
+    "json",
+    "gzip",
+    "rustls",
+    "webpki-roots",
+    "charset",
+    "http2",
+] }
+scraper = "0.27"
+texting_robots = "0.2"
+
+[dev-dependencies]
+# `start_paused` lets the rate-limiter tests assert real waits instantly.
+tokio = { version = "1.53", features = ["full", "test-util"] }

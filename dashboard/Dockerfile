@@ -33,13 +33,16 @@ FROM debian:bookworm-slim
 # region.colorado.toml for the shape.
 ARG REGION_FILE=region.colorado.toml
 
-# `openssh-server` and `iproute2` are not optional in a Firecracker guest:
-# /init.sh brings eth0 up with `ip` from the kernel's `ip=` parameter, and sshd
-# is what backs `heyctl exec` and `heyctl shell` into the VM. Without them the
-# VM boots unreachable and undebuggable.
+# `openssh-server`, `iproute2` and `socat` are not optional in a Firecracker
+# guest: /init.sh brings eth0 up with `ip` from the kernel's `ip=` parameter,
+# sshd is what backs `heyctl exec` and `heyctl shell`, and socat is what carries
+# this VM's application logs off the box — the daemon starts
+# `tail -F /var/log/heyvm-start.log | socat -u - VSOCK-CONNECT:…` inside the
+# guest, and without socat that pump never runs and app-obs shows this
+# deployment's control-plane lines and nothing the application printed.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        ca-certificates curl openssh-server iproute2 iputils-ping procps \
+        ca-certificates curl openssh-server iproute2 iputils-ping procps socat \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --create-home regional
 

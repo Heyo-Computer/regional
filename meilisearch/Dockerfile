@@ -10,8 +10,10 @@ FROM getmeili/meilisearch:v1.53.2
 # This base is Alpine/musl, so the guest packages come from apk rather than
 # apt. `iproute2` and `openssh` are what a Firecracker guest needs beyond the
 # application: /init.sh configures eth0 with `ip` from the kernel's `ip=`
-# parameter, and sshd is what backs `heyctl exec` and `heyctl shell`.
-RUN apk add --no-cache openssh iproute2 curl \
+# parameter, sshd is what backs `heyctl exec` and `heyctl shell`, and socat is
+# what carries application logs off the box — the daemon pumps
+# /var/log/heyvm-start.log over vsock with it.
+RUN apk add --no-cache openssh iproute2 curl socat \
     && mkdir -p /run/sshd /etc/ssh/sshd_config.d \
     && echo "PermitRootLogin yes" >> /etc/ssh/sshd_config \
     && echo "PermitEmptyPasswords yes" >> /etc/ssh/sshd_config \

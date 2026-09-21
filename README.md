@@ -23,20 +23,25 @@ vocabulary; `region.vermont.toml` is a worked second example. See
 ## Quick start
 
 ```bash
-cp .env.example .env     # then edit it — CONTACT_EMAIL must be a real address
-docker compose up --build
+make env                 # writes .env, generating the two secrets for you
+$EDITOR .env             # CONTACT_EMAIL must be a real address you monitor
+make up                  # build and start the whole stack
 ```
 
 Then:
 
 ```bash
+make urls                # where every surface is listening
+make health              # probe all five health endpoints
+make logs-bot            # follow the indexer
+
 open http://localhost:8090                        # operator dashboard
 open http://localhost:8091                        # public request page
-
-curl localhost:8080/healthz                       # the MCP server
-curl localhost:8081/healthz                       # the indexer, with per-source stats
-curl localhost:7700/health                        # the database
 ```
+
+`make` on its own lists every target. Everything it runs is an ordinary
+`docker compose` or `cargo` command — `make -n <target>` prints it if you
+would rather run it by hand.
 
 Point any MCP client at `http://localhost:8080/mcp` with the header
 `Authorization: Bearer $MCP_AUTH_TOKEN`, or use the Inspector:
@@ -66,7 +71,7 @@ Everything region-specific lives in one file. Swapping regions means writing
 that file and rebuilding:
 
 ```bash
-REGION_FILE=region.vermont.toml docker compose up --build
+make up REGION_FILE=region.vermont.toml
 ```
 
 ```toml
@@ -231,10 +236,12 @@ them as Firecracker microVMs, so the Dockerfiles here *are* the VM image build.
 ```bash
 REGISTRY=ghcr.io/your-org \
 MEILI_MASTER_KEY=... MCP_AUTH_TOKEN=... CONTACT_EMAIL=you@example.com \
-deploy/heyo-deploy.sh
+make deploy
 ```
 
-Pass `REGION_FILE=region.vermont.toml` to bake in a different region.
+Add `REGION_FILE=region.vermont.toml` to bake in a different region. `make
+deploy` is a one-line wrapper over `deploy/heyo-deploy.sh`, which you can
+equally run directly.
 
 It builds and pushes all four images, then deploys meilisearch (private) →
 bot (private) → mcp (public) → dashboard, minting a search-only Meilisearch
@@ -251,12 +258,21 @@ VM costs a full re-index, so `--no-ttl` keeps it from being reaped.
 ## Development
 
 ```bash
-cargo test --workspace                     # unit tests, no network needed
-cargo clippy --workspace --all-targets
-docker compose run --rm bot --once         # one cycle of every source, then exit
+make check          # fmt + clippy + tests — run before committing
+make bot-once       # one cycle of every source, then exit
 ```
 
-`--once` is the fastest way to see whether a source change actually produces
-documents. The log line to watch is `source cycle complete`, which reports
-`received / written / unchanged / out_of_region / invalid` — on a second run of
-unchanged upstream data, `written` should be 0.
+`make check` runs `cargo fmt --check`, `cargo clippy -D warnings` and
+`cargo test --workspace`; each is also a target of its own — `make test`,
+`make clippy`, `make fmt`. To run a binary on the host against the database
+in Docker:
+
+```bash
+make meili          # just Meilisearch, in the background
+make run-mcp        # or run-bot, run-bot-once, run-dashboard
+```
+
+`make bot-once` is the fastest way to see whether a source change actually
+produces documents. The log line to watch is `source cycle complete`, which
+reports `received / written / unchanged / out_of_region / invalid` — on a
+second run of unchanged upstream data, `written` should be 0.

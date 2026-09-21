@@ -1,0 +1,150 @@
+# Colorado, phase one: the Grand Junction — Buena Vista — Salida corridor.
+#
+# Same region as region.colorado.toml — name, slug and vocabulary are
+# identical, so MCP clients and the dashboard see no change when this is
+# swapped for the full-state file. The only difference is `bbox`, which is
+# narrowed to the west-central corridor, and a gazetteer trimmed to the
+# towns inside it.
+#
+# Why narrow it at all: the indexer sweeps one Overpass tile per run, so the
+# sweep time is tiles x interval. The full state is 54 tiles (~18 hours);
+# this corridor is 8 (~2.7 hours), which is what makes the three towns
+# actually finished rather than eventually reached.
+#
+# To expand to the whole state, republish this mount from
+# region.colorado.toml — no image rebuild, because REGION_CONFIG points at
+# the mount rather than at the copy baked into the image:
+#
+#   tar czf region.tgz -C <dir> region.toml
+#   art put region.tgz --tag regional-region-co
+#   applb_pull_mounts on regional-bot / regional-mcp / regional-dashboard-*
+#
+# Startup validation rejects a gazetteer city outside the bbox, so the two
+# lists below have to be expanded together.
+
+name = "Colorado"
+slug = "co"
+admin_level = "state"
+timezone = "America/Denver"
+
+# West edge is the state line; the other three sides cut the corridor out of
+# the state. Everything inside is Colorado — this is a subset of the full
+# region, never a different one.
+[bbox]
+min_lat = 38.200000
+min_lng = -109.060253
+max_lat = 39.400000
+max_lng = -105.600000
+
+[centroid]
+lat = 38.800000
+lng = -107.330000
+
+# Copied verbatim from region.colorado.toml. `[vocabulary]` REPLACES the
+# built-in defaults rather than extending them, so the whole table has to
+# travel with the file.
+[vocabulary]
+stop_words = [
+  "a", "an", "and", "at", "for", "in", "is", "it", "near", "of", "on", "or",
+  "the", "to", "with", "where",
+]
+synonyms = [
+  ["vineyard", "winery", "wine tasting", "tasting room"],
+  ["restaurant", "eatery", "dining", "diner"],
+  ["bar", "pub", "tavern"],
+  ["brewery", "taproom", "brewpub", "beer garden"],
+  ["cafe", "coffee shop", "coffeehouse", "espresso"],
+  ["trail", "trailhead", "hiking"],
+  ["hotel", "lodging", "motel", "inn"],
+  ["museum", "gallery"],
+  ["campground", "camping", "campsite"],
+  ["hot springs", "hot spring", "thermal springs"],
+  ["ski area", "ski resort", "ski hill"],
+  # Colorado-specific: a "fourteener" is any peak over 14,000 feet.
+  ["fourteener", "14er", "peak", "summit"],
+]
+
+# ---------------------------------------------------------------------
+# The three towns this phase is for.
+# ---------------------------------------------------------------------
+
+[[cities]]
+name = "Grand Junction"
+aliases = ["GJ", "Grand Junction, CO"]
+lat = 39.0639
+lng = -108.5506
+county = "Mesa"
+default_radius_m = 20000
+
+# Not in region.colorado.toml — added here, and worth carrying back into the
+# full-state file when this expands.
+[[cities]]
+name = "Buena Vista"
+aliases = ["BV", "Buena Vista, CO"]
+lat = 38.8422
+lng = -106.1311
+county = "Chaffee"
+default_radius_m = 12000
+
+[[cities]]
+name = "Salida"
+lat = 38.5347
+lng = -105.9989
+county = "Chaffee"
+default_radius_m = 12000
+
+# ---------------------------------------------------------------------
+# Neighbours inside the same bbox. They cost nothing to resolve and stop
+# "near Poncha Springs" style queries from failing at the edges of the
+# three towns above.
+# ---------------------------------------------------------------------
+
+[[cities]]
+name = "Palisade"
+aliases = ["Palisade wine country"]
+lat = 39.1103
+lng = -108.3509
+county = "Mesa"
+default_radius_m = 12000
+
+[[cities]]
+name = "Poncha Springs"
+lat = 38.5111
+lng = -106.0764
+county = "Chaffee"
+default_radius_m = 8000
+
+[[cities]]
+name = "Montrose"
+lat = 38.4783
+lng = -107.8762
+county = "Montrose"
+default_radius_m = 15000
+
+[[cities]]
+name = "Gunnison"
+lat = 38.5458
+lng = -106.9253
+county = "Gunnison"
+default_radius_m = 15000
+
+[[cities]]
+name = "Crested Butte"
+lat = 38.8697
+lng = -106.9878
+county = "Gunnison"
+default_radius_m = 12000
+
+[[cities]]
+name = "Aspen"
+lat = 39.1911
+lng = -106.8175
+county = "Pitkin"
+default_radius_m = 12000
+
+[[cities]]
+name = "Leadville"
+lat = 39.2508
+lng = -106.2925
+county = "Lake"
+default_radius_m = 12000

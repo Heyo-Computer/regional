@@ -59,6 +59,7 @@ npx @modelcontextprotocol/inspector
 | `search_events` | Events in a time window, soonest first. Defaults to upcoming only. |
 | `get_document` | One full record, including the body that search results truncate. |
 | `describe_region` | The region's bounds, every place name that resolves, live category values, and per-index document counts. Call it first. |
+| `list_locales` | Every place name `city`/`near` resolve, with aliases, county, coordinates and default radius, grouped by county. `county` narrows it to one. |
 
 `city` and `near` resolve against the gazetteer and become a geographic
 radius, which is why they find things whose `city` field is missing or spelled

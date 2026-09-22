@@ -373,6 +373,36 @@ impl RegionConfig {
         self.cities.iter().map(|c| c.name.clone()).collect()
     }
 
+    /// Gazetteer cities in one county. Case, diacritics and a trailing
+    /// "County" are ignored, because callers write "Chaffee County" as
+    /// often as "Chaffee".
+    pub fn cities_in_county(&self, county: &str) -> Vec<&City> {
+        let want = normalize_county(county);
+        if want.is_empty() {
+            return Vec::new();
+        }
+        self.cities
+            .iter()
+            .filter(|c| {
+                c.county
+                    .as_deref()
+                    .is_some_and(|k| normalize_county(k) == want)
+            })
+            .collect()
+    }
+
+    /// Every county the gazetteer names, sorted, each once.
+    pub fn county_names(&self) -> Vec<String> {
+        let mut out: Vec<String> = self
+            .cities
+            .iter()
+            .filter_map(|c| c.county.clone())
+            .collect();
+        out.sort();
+        out.dedup();
+        out
+    }
+
     /// The gazetteer city nearest a point, used to backfill `city` on
     /// documents whose source gave coordinates but no place name.
     pub fn nearest_city(&self, geo: GeoPoint) -> Option<&City> {
@@ -386,6 +416,14 @@ impl RegionConfig {
 
 /// Lowercase, drop punctuation and diacritics, collapse whitespace, so
 /// "Cañon City", "canon city" and "Cañon  City," all compare equal.
+fn normalize_county(s: &str) -> String {
+    let n = normalize(s);
+    match n.strip_suffix(" county") {
+        Some(stem) => stem.to_string(),
+        None => n,
+    }
+}
+
 fn normalize(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut pending_space = false;
@@ -526,6 +564,36 @@ mod tests {
         let co = colorado();
         let s = co.suggest("Bolder", 3);
         assert!(s.contains(&"Boulder".to_string()), "got {s:?}");
+    }
+
+    #[test]
+    fn county_lookup_ignores_case_and_the_county_suffix() {
+        let co = colorado();
+        let names = |county: &str| -> Vec<String> {
+            let mut v: Vec<String> = co
+                .cities_in_county(county)
+                .iter()
+                .map(|c| c.name.clone())
+                .collect();
+            v.sort();
+            v
+        };
+        assert_eq!(names("Mesa"), ["Grand Junction", "Palisade"]);
+        assert_eq!(names("mesa county"), ["Grand Junction", "Palisade"]);
+        assert_eq!(
+            names("El Paso County"),
+            ["Colorado Springs", "Manitou Springs"]
+        );
+        assert!(names("Cook County").is_empty());
+        assert!(names("").is_empty());
+        assert!(names("County").is_empty());
+    }
+
+    #[test]
+    fn county_names_are_sorted_and_unique() {
+        let counties = colorado().county_names();
+        assert!(counties.windows(2).all(|w| w[0] < w[1]), "got {counties:?}");
+        assert!(counties.contains(&"Mesa".to_string()));
     }
 
     #[test]

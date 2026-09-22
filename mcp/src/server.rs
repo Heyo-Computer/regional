@@ -7,6 +7,7 @@
 use std::sync::Arc;
 
 use regional_core::model::Kind;
+use regional_core::region::City;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
     CallToolResult, ContentBlock, ErrorData, Implementation, ServerCapabilities, ServerConfig,
@@ -62,11 +63,12 @@ pub struct SearchRegionArgs {
 
     /// A town or city to limit results to. Known towns become a radius
     /// around the town centre, which is far more reliable than matching
-    /// the city name on each document. Call `describe_region` for the list.
+    /// the city name on each document. Call `list_locales` for the list.
     #[serde(default)]
     pub city: Option<String>,
 
-    /// A county name to limit results to, matched exactly.
+    /// A county name to limit results to, matched exactly. `list_locales`
+    /// shows the county names this server uses.
     #[serde(default)]
     pub county: Option<String>,
 
@@ -154,6 +156,14 @@ pub struct SearchEventsArgs {
     /// How many results to return. Default 10, maximum 50.
     #[serde(default)]
     pub limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListLocalesArgs {
+    /// Only list the locales in this county, e.g. "Chaffee" or "Chaffee
+    /// County". Omit to list every locale in the region.
+    #[serde(default)]
+    pub county: Option<String>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -445,6 +455,59 @@ impl RegionalSearch {
         }
     }
 
+    /// List the named places `city` and `near` resolve against.
+    #[tool(
+        name = "list_locales",
+        description = "List the locales this server resolves by name — the towns and cities `city` and `near` accept — with each one's aliases, county, coordinates and default search radius, grouped by county. Pass `county` to list one county. Use this to turn a county or a vague area into place names the other tools accept, and to find the county value `search_region` filters on."
+    )]
+    async fn list_locales(
+        &self,
+        Parameters(args): Parameters<ListLocalesArgs>,
+    ) -> Result<CallToolResult, ErrorData> {
+        let region = &self.state.region;
+        let county = args
+            .county
+            .as_deref()
+            .map(str::trim)
+            .filter(|c| !c.is_empty());
+        let mut locales: Vec<&City> = match county {
+            Some(county) => region.cities_in_county(county),
+            None => region.cities.iter().collect(),
+        };
+        if let Some(county) = county
+            && locales.is_empty()
+        {
+            return Ok(user_error(format!(
+                "no locales in a county called {county:?} in {}. Counties with locales: {}.",
+                region.name,
+                region.county_names().join(", ")
+            )));
+        }
+        // By county, so each county reads as one block; places with no county last.
+        locales.sort_by(|a, b| {
+            (a.county.is_none(), &a.county, &a.name).cmp(&(b.county.is_none(), &b.county, &b.name))
+        });
+
+        let value = json!({
+            "region": region.name,
+            // Echo the county as the gazetteer spells it, which is the value
+            // `search_region` matches, rather than however it was asked for.
+            "county": county.and(locales.first().and_then(|c| c.county.clone())),
+            "locales": locales
+                .iter()
+                .map(|c| json!({
+                    "name": c.name,
+                    "aliases": c.aliases,
+                    "county": c.county,
+                    "lat": c.lat,
+                    "lng": c.lng,
+                    "default_radius_m": c.default_radius_m,
+                }))
+                .collect::<Vec<_>>(),
+        });
+        Ok(respond(render::locales(&value), value))
+    }
+
     /// Describe the region and what is currently indexed.
     #[tool(
         name = "describe_region",
@@ -521,8 +584,9 @@ impl ServerHandler for RegionalSearch {
                  Put the subject of the search in `query` and the location in `city` \
                  or `near`; those resolve to real coordinates and filter on distance, \
                  which finds things that a text match on the place name would miss. \
-                 Start with `describe_region` to see which place names resolve and \
-                 which category values exist.",
+                 Start with `describe_region` to see what is indexed and which \
+                 category values exist, and `list_locales` for the place names \
+                 `city` and `near` accept.",
                 region = r.name
             ))
     }

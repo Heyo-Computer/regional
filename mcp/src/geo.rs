@@ -59,7 +59,7 @@ pub async fn resolve(state: &AppState, name: &str) -> Result<Anchor, String> {
     let suggestions = state.region.suggest(name, 5);
     Err(format!(
         "could not locate {name:?} within {}. Closest known places: {}. \
-         Pass explicit lat/lng, or call describe_region to list every place name this server knows.",
+         Pass explicit lat/lng, or call list_locales to list every place name this server knows.",
         state.region.name,
         suggestions.join(", ")
     ))

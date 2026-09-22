@@ -68,8 +68,14 @@ async fn main() -> Result<()> {
     // balancer every request arrives with a hostname it rejects. Anything
     // listed in MCP_ALLOWED_HOSTS replaces that list; `*` turns the check
     // off, which is only safe because the bearer check runs in front of it.
-    let mut http_config =
-        StreamableHttpServerConfig::default().with_cancellation_token(ct.child_token());
+    //
+    // Stateless, because every tool is a pure function of its arguments and
+    // a session would hold nothing. Sessions live in one process's memory,
+    // so any rollout, VM recycle or second replica turns a client's session
+    // id into a 404, and clients that don't re-initialize stay broken.
+    let mut http_config = StreamableHttpServerConfig::default()
+        .with_cancellation_token(ct.child_token())
+        .with_legacy_session_mode(false);
     if cfg.allowed_hosts.iter().any(|h| h == "*") {
         tracing::warn!("MCP_ALLOWED_HOSTS=* — Host validation is disabled");
         http_config = http_config.disable_allowed_hosts();

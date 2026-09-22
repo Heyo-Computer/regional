@@ -259,6 +259,53 @@ pub fn region(v: &Value) -> String {
     out
 }
 
+pub fn locales(v: &Value) -> String {
+    let region = v.get("region").and_then(Value::as_str).unwrap_or("");
+    let list = v
+        .get("locales")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let mut out = format!(
+        "{} locale(s) in {region}. Pass a name or any alias as `city` or `near`; \
+         pass the county as `county` to search_region.\n",
+        list.len()
+    );
+
+    // The list arrives sorted by county, so a new heading starts a new block.
+    let mut current: Option<Option<&str>> = None;
+    for c in list {
+        let county = c.get("county").and_then(Value::as_str);
+        if current != Some(county) {
+            out.push_str(&match county {
+                Some(k) => format!("\ncounty: {k}\n"),
+                None => "\nno county\n".to_string(),
+            });
+            current = Some(county);
+        }
+        let mut line = format!("  {}", c.get("name").and_then(Value::as_str).unwrap_or(""));
+        let aliases: Vec<String> = c
+            .get("aliases")
+            .and_then(Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|a| a.as_str().map(|a| format!("{a:?}")))
+            .collect();
+        if !aliases.is_empty() {
+            line.push_str(&format!("  ·  aka {}", aliases.join(", ")));
+        }
+        let f = |k: &str| c.get(k).and_then(Value::as_f64).unwrap_or_default();
+        line.push_str(&format!("  ·  {:.4}, {:.4}", f("lat"), f("lng")));
+        if let Some(r) = c.get("default_radius_m").and_then(Value::as_u64) {
+            line.push_str(&format!("  ·  {} default radius", distance(r)));
+        }
+        out.push_str(&line);
+        out.push('\n');
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -329,6 +376,28 @@ mod tests {
     fn header_offers_paging_only_when_more_remain() {
         assert!(header("Colorado", "\"x\"", None, 10, 250, 0).contains("offset=10"));
         assert!(!header("Colorado", "\"x\"", None, 10, 10, 0).contains("offset"));
+    }
+
+    #[test]
+    fn locales_group_under_their_county_with_aliases() {
+        let v = serde_json::json!({
+            "region": "Colorado",
+            "locales": [
+                { "name": "Buena Vista", "aliases": [], "county": "Chaffee",
+                  "lat": 38.8422, "lng": -106.1311, "default_radius_m": 12000 },
+                { "name": "Salida", "aliases": ["Salida, CO"], "county": "Chaffee",
+                  "lat": 38.5347, "lng": -105.9989, "default_radius_m": 12000 },
+                { "name": "Nowhere", "aliases": [], "county": null,
+                  "lat": 39.0, "lng": -105.0, "default_radius_m": 5000 },
+            ],
+        });
+        let out = locales(&v);
+        assert!(out.starts_with("3 locale(s) in Colorado."));
+        assert_eq!(out.matches("county: Chaffee").count(), 1);
+        assert!(out.contains(
+            "  Salida  ·  aka \"Salida, CO\"  ·  38.5347, -105.9989  ·  12.0 km default radius"
+        ));
+        assert!(out.contains("no county\n  Nowhere"));
     }
 
     #[test]

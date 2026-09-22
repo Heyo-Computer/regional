@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use meilisearch_sdk::errors::{Error as MeiliError, ErrorCode};
 use meilisearch_sdk::search::SearchQuery;
 use regional_core::index::CONTENT_INDEXES;
 use regional_core::meili::Client;
@@ -37,14 +38,26 @@ impl AppState {
 
     /// Document count per content index. Reported by `describe_region` so a
     /// caller can tell an empty index from a query that found nothing.
-    pub async fn doc_counts(&self) -> BTreeMap<String, usize> {
+    ///
+    /// Counted with an empty search rather than the stats endpoint, because
+    /// this service's key is search-only and stats need more than that. A
+    /// count that cannot be read is `None`, never zero: zero makes
+    /// `describe_region` tell the caller every search will come back empty.
+    pub async fn doc_counts(&self) -> BTreeMap<String, Option<usize>> {
         let mut out = BTreeMap::new();
         for index in CONTENT_INDEXES {
-            let n = match self.client.index(index).get_stats().await {
-                Ok(s) => s.number_of_documents,
+            let idx = self.client.index(index);
+            let mut q = SearchQuery::new(&idx);
+            q.with_query("").with_limit(0);
+            let n = match q.execute::<RawHit>().await {
+                Ok(res) => res.estimated_total_hits,
+                // Not created yet is genuinely empty.
+                Err(MeiliError::Meilisearch(e)) if e.error_code == ErrorCode::IndexNotFound => {
+                    Some(0)
+                }
                 Err(e) => {
-                    tracing::warn!(index, error = %e, "could not read index stats");
-                    0
+                    tracing::warn!(index, error = %e, "could not count documents");
+                    None
                 }
             };
             out.insert(index.to_string(), n);

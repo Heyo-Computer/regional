@@ -217,7 +217,12 @@ pub fn region(v: &Value) -> String {
                 .and_then(Value::as_str)
                 .map(|s| format!(" (newest {s})"))
                 .unwrap_or_default();
-            out.push_str(&format!("  {k}: {n}{fresh}\n"));
+            match n.as_u64() {
+                Some(n) => out.push_str(&format!("  {k}: {n}{fresh}\n")),
+                None => out.push_str(&format!(
+                    "  {k}: unknown (the count could not be read){fresh}\n"
+                )),
+            }
         }
         if empty {
             out.push_str(
@@ -398,6 +403,17 @@ mod tests {
             "  Salida  ·  aka \"Salida, CO\"  ·  38.5347, -105.9989  ·  12.0 km default radius"
         ));
         assert!(out.contains("no county\n  Nowhere"));
+    }
+
+    #[test]
+    fn an_unreadable_count_is_not_mistaken_for_an_empty_index() {
+        let v = serde_json::json!({
+            "region": "Colorado",
+            "document_counts": { "places": null, "events": 0, "articles": 0 },
+        });
+        let out = region(&v);
+        assert!(!out.contains("index is empty"));
+        assert!(out.contains("places: unknown"));
     }
 
     #[test]

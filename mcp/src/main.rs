@@ -60,6 +60,7 @@ async fn main() -> Result<()> {
         tracing::warn!(error = %e, "could not apply index settings (expected with a search-only key); continuing");
     }
 
+    let auth = Arc::new(auth::Auth::new(cfg.clone(), client.clone()));
     let state = Arc::new(AppState::new(client, region));
     let ct = tokio_util::sync::CancellationToken::new();
 
@@ -93,11 +94,7 @@ async fn main() -> Result<()> {
     // credentials to present.
     let mcp_router = Router::new()
         .fallback_service(mcp_service)
-        .layer(middleware::from_fn_with_state(
-            cfg.clone(),
-            auth::require_bearer,
-        ))
-        .with_state(cfg.clone());
+        .layer(middleware::from_fn_with_state(auth, auth::require_bearer));
 
     let app = Router::new()
         .route("/healthz", get(healthz))

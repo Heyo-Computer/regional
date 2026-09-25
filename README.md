@@ -206,7 +206,7 @@ in `sources::all()`.
 | `MEILI_URL` | mcp, bot | e.g. `http://meilisearch:7700` |
 | `MEILI_MASTER_KEY` | bot | admin — the indexer writes |
 | `MEILI_SEARCH_KEY` | mcp | **search-only**; see `deploy/create-search-key.sh` |
-| `MCP_AUTH_TOKEN` | mcp | required unless `MCP_ALLOW_ANONYMOUS=1` |
+| `MCP_AUTH_TOKEN` | mcp | required unless `MCP_ALLOW_ANONYMOUS=1`. Per-user tokens are minted on the dashboard's **MCP tokens** page and work alongside it |
 | `CONTACT_EMAIL` | bot | **required.** Goes in the User-Agent |
 | `CRAWL_SEEDS` | bot | `https://site|Town,https://other` |
 | `SOURCE_INTERVALS` | bot | `overpass=20m,wikipedia=15m,crawl=10m` |
@@ -228,6 +228,13 @@ Two things worth knowing:
 - **The MCP server fails closed.** With no `MCP_AUTH_TOKEN` it will not start,
   because the endpoint is internet-facing once deployed. Opt out deliberately
   with `MCP_ALLOW_ANONYMOUS=1`.
+- **Per-user MCP tokens.** The admin dashboard's `/tokens` page mints a
+  `rgn_…` bearer token per person and revokes it later. Only a blake3 hash is
+  stored (in the `mcp_tokens` index), so the token is shown once at minting.
+  The MCP server caches a valid token for 60s, which bounds how long a
+  revocation takes. Its search key must cover `mcp_tokens` — keys made by
+  `deploy/create-search-key.sh` before this existed do not, so re-run it and
+  redeploy the MCP service.
 
 ## Deploying to heyo
 

@@ -9,13 +9,14 @@ use std::sync::Arc;
 use axum::Form;
 use axum::Router;
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::{StatusCode, header};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use maud::{Markup, html};
 use regional_core::index::CONTENT_INDEXES;
-use regional_core::model::Kind;
+use regional_core::model::{Kind, now_ts};
 use regional_core::submission::{Request, Status, Submission};
+use regional_core::token::McpToken;
 use serde::Deserialize;
 
 use crate::state::AppState;
@@ -29,6 +30,8 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/submissions/{id}", get(submission_detail))
         .route("/submissions/{id}/review", post(review))
         .route("/browse", get(browse))
+        .route("/tokens", get(tokens).post(mint_token))
+        .route("/tokens/{id}/revoke", post(revoke_token))
         .route("/healthz", get(crate::healthz))
         .with_state(state)
 }
@@ -39,6 +42,7 @@ fn nav(current: &'static str) -> Nav {
             ("/", "Overview"),
             ("/submissions", "Submissions"),
             ("/browse", "Browse index"),
+            ("/tokens", "MCP tokens"),
         ],
         current,
     }
@@ -586,6 +590,189 @@ async fn browse(State(state): State<Arc<AppState>>, Query(query): Query<BrowseQu
     )
 }
 
+// ------------------------------------------------------------- mcp tokens
+
+/// Longest a token name may be; it is a label, not a description.
+const MAX_TOKEN_NAME: usize = 120;
+
+#[derive(Debug, Deserialize)]
+pub struct MintForm {
+    name: String,
+    /// Days until expiry; blank or 0 means it never expires.
+    #[serde(default)]
+    expires_days: String,
+}
+
+async fn tokens(State(state): State<Arc<AppState>>) -> Markup {
+    tokens_page(&state, None, None).await
+}
+
+async fn mint_token(State(state): State<Arc<AppState>>, Form(form): Form<MintForm>) -> Response {
+    let name: String = form.name.trim().chars().take(MAX_TOKEN_NAME).collect();
+    if name.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            tokens_page(&state, None, Some("Give the token a name, so you know whose it is later.")).await,
+        )
+            .into_response();
+    }
+    let expires_at = match form.expires_days.trim() {
+        "" | "0" => None,
+        d => match d.parse::<u32>() {
+            Ok(days) => Some(now_ts() + i64::from(days) * 86_400),
+            Err(_) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    tokens_page(&state, None, Some("Expiry must be a whole number of days.")).await,
+                )
+                    .into_response();
+            }
+        },
+    };
+
+    match state.store.mint_token(name.clone(), expires_at).await {
+        Ok(token) => {
+            tracing::info!(name = %name, ?expires_at, "minted an MCP token");
+            // Rendered straight back rather than redirected: the token is
+            // shown this once and must not end up in a URL or a cache.
+            (
+                [(header::CACHE_CONTROL, "no-store")],
+                tokens_page(&state, Some((&name, &token)), None).await,
+            )
+                .into_response()
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "minting an MCP token failed");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                tokens_page(&state, None, Some(&format!("Could not mint the token: {e}"))).await,
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn revoke_token(State(state): State<Arc<AppState>>, Path(id): Path<String>) -> Response {
+    match state.store.revoke_token(&id).await {
+        Ok(t) => {
+            tracing::info!(name = %t.name, hint = %t.hint, "revoked an MCP token");
+            Redirect::to("/tokens").into_response()
+        }
+        Err(e) => {
+            tracing::error!(error = %e, id = %id, "revoking an MCP token failed");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("could not revoke: {e}"),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn tokens_page(state: &AppState, minted: Option<(&str, &str)>, error: Option<&str>) -> Markup {
+    let rows = state.store.tokens().await.unwrap_or_else(|e| {
+        tracing::error!(error = %e, "listing MCP tokens failed");
+        Vec::new()
+    });
+    let now = now_ts();
+
+    shell(
+        state,
+        "MCP tokens",
+        html! {
+            h1 { "MCP tokens" }
+            p.lede {
+                "Bearer tokens for the MCP endpoint, one per person, so access can be "
+                "handed out and taken back individually. The shared "
+                span.mono { "MCP_AUTH_TOKEN" } " keeps working alongside these."
+            }
+
+            @if let Some((name, token)) = minted {
+                .note {
+                    strong { "Token for " (name) ". " }
+                    "Copy it now — only its hash is stored, so it cannot be shown again."
+                    pre.mono style="white-space:pre-wrap;word-break:break-all;margin:10px 0 6px" { (token) }
+                    div.small { "They send it as " span.mono { "Authorization: Bearer " (token) } }
+                }
+            }
+            @if let Some(err) = error {
+                .note.err { (err) }
+            }
+
+            h2 { "Mint a token" }
+            form.stack method="post" action="/tokens" {
+                div {
+                    label for="name" { "Who is it for" }
+                    input type="text" id="name" name="name" required maxlength=(MAX_TOKEN_NAME)
+                        placeholder="Jane Doe — trail guide app";
+                }
+                div {
+                    label for="expires_days" { "Expires after " span.opt { "— days, blank for never" } }
+                    input type="number" id="expires_days" name="expires_days" min="0"
+                        style="max-width:10rem";
+                }
+                .actions { button type="submit" { "Mint token" } }
+            }
+
+            h2 { "Issued" }
+            @if rows.is_empty() {
+                .note { "No tokens minted yet." }
+            } @else {
+                (token_table(&rows, now))
+            }
+            p.small.muted {
+                "The MCP server caches a valid token for up to a minute, so a "
+                "revocation can take that long to bite."
+            }
+        },
+    )
+}
+
+fn token_table(rows: &[McpToken], now: i64) -> Markup {
+    html! {
+        table {
+            thead {
+                tr {
+                    th { "Name" }
+                    th { "Token" }
+                    th.nowrap { "Created" }
+                    th.nowrap { "Expires" }
+                    th { "State" }
+                    th {}
+                }
+            }
+            tbody {
+                @for t in rows {
+                    tr {
+                        td { strong { (t.name) } }
+                        td.mono { (t.hint) "…" }
+                        td.nowrap.small { (views::ts(t.created_at)) }
+                        td.nowrap.small { (views::opt_ts(t.expires_at)) }
+                        td {
+                            @if let Some(r) = t.revoked_at {
+                                span."badge"."rejected" { "revoked" }
+                                div.small.muted { (views::ago(r)) }
+                            } @else if !t.is_active(now) {
+                                span."badge"."pending" { "expired" }
+                            } @else {
+                                span."badge"."applied" { "active" }
+                            }
+                        }
+                        td {
+                            @if t.revoked_at.is_none() {
+                                form method="post" action={ "/tokens/" (t.id) "/revoke" }
+                                    onsubmit="return confirm('Revoke this token? Whoever holds it loses access.')" {
+                                    button.secondary type="submit" { "Revoke" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn truncate(s: &str, max: usize) -> String {
     let s = s.trim();
     if s.chars().count() <= max {
@@ -611,7 +798,7 @@ mod tests {
     #[test]
     fn every_nav_entry_points_at_a_real_route() {
         // The route table and the nav are edited separately; keep them honest.
-        let routes = ["/", "/submissions", "/browse"];
+        let routes = ["/", "/submissions", "/browse", "/tokens"];
         for (href, _) in nav("Overview").items {
             assert!(routes.contains(&href), "{href} is not a route");
         }

@@ -22,6 +22,10 @@ pub const SUBMISSIONS: &str = "submissions";
 /// Meilisearch is the only stateful service in the stack, so the indexer
 /// keeps its own state here rather than needing a volume of its own.
 pub const BOT_STATE: &str = "bot_state";
+/// Hashes of the per-user MCP bearer tokens minted on the dashboard. The
+/// MCP server's search key must be able to search this index; see
+/// `deploy/create-search-key.sh`.
+pub const MCP_TOKENS: &str = "mcp_tokens";
 
 pub const CONTENT_INDEXES: [&str; 3] = [PLACES, EVENTS, ARTICLES];
 
@@ -151,6 +155,17 @@ fn state_settings() -> Settings {
         .with_sortable_attributes(["priority", "discovered_at", "updated_at"])
 }
 
+/// Settings for the MCP token index.
+///
+/// Looked up by exact `id` filter, never by text, so nothing is searchable
+/// beyond the id itself.
+fn token_settings() -> Settings {
+    Settings::new()
+        .with_searchable_attributes(["id"])
+        .with_filterable_attributes(["id"])
+        .with_sortable_attributes(["created_at"])
+}
+
 /// Create any missing index with `id` as its primary key and apply settings.
 ///
 /// Safe to call concurrently from both services: creating an index that
@@ -161,6 +176,7 @@ pub async fn ensure_indexes(client: &Client, region: &RegionConfig) -> Result<()
     }
     ensure_one(client, SUBMISSIONS, &submission_settings()).await?;
     ensure_one(client, BOT_STATE, &state_settings()).await?;
+    ensure_one(client, MCP_TOKENS, &token_settings()).await?;
     tracing::info!(
         region = %region.name,
         indexes = ?CONTENT_INDEXES,
@@ -262,6 +278,14 @@ mod tests {
         let so = s.sortable_attributes.clone().unwrap_or_default();
         assert!(so.contains(&"priority".to_string()));
         assert!(so.contains(&"discovered_at".to_string()));
+    }
+
+    #[test]
+    fn tokens_are_looked_up_by_id() {
+        let s = token_settings();
+        assert!(filterable_names(&s).contains(&"id".to_string()));
+        let so = s.sortable_attributes.clone().unwrap_or_default();
+        assert!(so.contains(&"created_at".to_string()));
     }
 
     #[test]

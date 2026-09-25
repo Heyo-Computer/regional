@@ -11,6 +11,7 @@ pub mod meili;
 pub mod model;
 pub mod region;
 pub mod submission;
+pub mod token;
 
 pub use error::{Error, Result};
 pub use model::{Article, Doc, Event, GeoPoint, GeoPrecision, Kind, Place};

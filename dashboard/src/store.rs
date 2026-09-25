@@ -4,11 +4,12 @@ use std::collections::BTreeMap;
 
 use anyhow::{Context, Result};
 use meilisearch_sdk::search::{SearchQuery, Selectors};
-use regional_core::index::{CONTENT_INDEXES, SUBMISSIONS};
+use regional_core::index::{CONTENT_INDEXES, MCP_TOKENS, SUBMISSIONS};
 use regional_core::meili::{self, Client};
 use regional_core::model::{Kind, now_ts};
 use regional_core::region::RegionConfig;
 use regional_core::submission::{Request, Status, Submission};
+use regional_core::token::{self, McpToken};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -299,6 +300,59 @@ impl Store {
         sub.apply_note = None;
         self.create(&sub).await?;
         Ok(sub)
+    }
+
+    // ------------------------------------------------------------ mcp tokens
+
+    /// Every minted token, newest first. There are few enough that one page
+    /// is the whole list.
+    pub async fn tokens(&self) -> Result<Vec<McpToken>> {
+        let idx = self.client.index(MCP_TOKENS);
+        let sort = ["created_at:desc"];
+        let mut q = SearchQuery::new(&idx);
+        q.with_query("").with_limit(1000).with_sort(&sort);
+        let res = q.execute::<McpToken>().await.context("listing MCP tokens")?;
+        Ok(res.hits.into_iter().map(|h| h.result).collect())
+    }
+
+    /// Mint a token for `name`. Returns the token itself, which is the only
+    /// time it exists anywhere outside the caller's hands.
+    pub async fn mint_token(&self, name: String, expires_at: Option<i64>) -> Result<String> {
+        let secret = token::format(rand::random());
+        let rec = McpToken::new(&secret, name, expires_at);
+        // Wait for the write, so the token works the moment it is shown.
+        let info = self
+            .client
+            .index(MCP_TOKENS)
+            .add_or_replace(std::slice::from_ref(&rec), Some("id"))
+            .await
+            .context("storing the MCP token")?;
+        meili::await_task(&self.client, info)
+            .await
+            .context("storing the MCP token")?;
+        Ok(secret)
+    }
+
+    pub async fn revoke_token(&self, id: &str) -> Result<McpToken> {
+        let mut rec = self
+            .client
+            .index(MCP_TOKENS)
+            .get_document::<McpToken>(id)
+            .await
+            .with_context(|| format!("no MCP token with id {id:?}"))?;
+        if rec.revoked_at.is_none() {
+            rec.revoked_at = Some(now_ts());
+            let info = self
+                .client
+                .index(MCP_TOKENS)
+                .add_or_replace(std::slice::from_ref(&rec), Some("id"))
+                .await
+                .context("revoking the MCP token")?;
+            meili::await_task(&self.client, info)
+                .await
+                .context("revoking the MCP token")?;
+        }
+        Ok(rec)
     }
 
     // -------------------------------------------------------------- browsing
